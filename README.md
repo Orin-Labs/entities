@@ -84,7 +84,8 @@ const entity = new Entity({
 });
 
 /**
- * This will wake the entity asynchronously - it will check for new messages, respond to them with it's tools, then go back to sleep an amount of time it can decide.
+ * This will wake the entity asynchronously - it will check for new messages,
+ * respond to them with it's tools, then go back to sleep an amount of time it can decide.
  */
 await entity.run(); // Entity decides to sleep for 60 minutes after seeing no SMS messages.
 
@@ -94,13 +95,15 @@ await entity.run(); // Entity decides to sleep for 60 minutes after seeing no SM
 await entity.checkWakeup(); // False, entity is still sleeping.
 
 /**
- * This will shift the time for the entity forward by 60 minutes. This is extremely useful for testing.
+ * This will shift the time for the entity forward by 60 minutes. This is extremely useful
+ * for testing.
  */
 entity.shiftTime(60);
 await entity.checkWakeup(); // True, entity should wake up. It will run `entity.run()`.
 
 /**
- * You can also chat with the entity directly. No tools are available while directly chatting with the entity.
+ * You can also chat with the entity directly. No tools are available while directly
+ * chatting with the entity.
  */
 await entity.chat("Hello, how are you?", {
   channel: "sms", // The channel the message is sent through. Not required.
@@ -111,7 +114,8 @@ await entity.chat("Hello, how are you?", {
  * You can also import an entity from a JSON file, or export it back.
  */
 entity.exportToFile("./entities/test.json");
-const entity2 = Entity.importFromFile("./entities/test.json"); // Exact clone of the original entity.
+const entity2 = Entity.importFromFile("./entities/test.json"); // Exact clone of
+// the original entity.
 ```
 
 ## TODO
