@@ -30,7 +30,7 @@ After a few messages back and forth to an entity, those message will be stored i
 }
 ```
 
-The short-term memory stores the exact OpenAI messages objects, so the conversation can be resumed at will, regardless of which channel the message was sent through.
+The short-term memory stores the exact OpenAI messages objects so the conversation can be resumed at will, regardless of which channel the message was sent through.
 
 For long-term memory, we introduce a concept called enshrining. Enshrining a memory store is basically just having an LLM summarize the messages in the memory store.
 
