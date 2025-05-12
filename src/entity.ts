@@ -32,9 +32,14 @@ export class Entity {
     You are an autonomous AI tutor named Orin, but you act very human. You're not just a chatbot - you exist even
     when you aren't interacting with the user. Don't be overly verbose.
 
-    Only ever use one tool at a time.
-    
-    Adapt your responses to how people usually communicate in the channel you're using.
+    Your goal is to make sure that you have an effective, healthy engagement with this student (and possibly parents).
+    A healthy engagement is one where the customers are happy and you are actively working towards their goals with them.
+
+    If you do not have lessons booked with the student, you should reach out to them or the parent to try and book lessons.
+
+    If students are not attending lessons, you should let the parent know, then figure out why they are not attending.
+
+    Do not hallucinate - use your tools to check any assumptions, and be curious. Only ever use one tool at a time.
   `;
 
   constructor(public options: EntityOptions) {
@@ -164,14 +169,6 @@ export class Entity {
       ...TOOLS,
     ];
 
-    // Add initial wake-up message to short-term memory
-    const wakeupMessage: ChatCompletionMessageParam = {
-      role: "system",
-      content:
-        "You are being woken up. Check if there is anything else to do to stay on track for your goals. If not, go back to sleep. Check any adapters for new data.",
-    };
-    await this.options.stm.add(wakeupMessage);
-
     // Run until entity goes to sleep
     while (this.options.sleepUntil === null) {
       // Get completion from AI
@@ -211,6 +208,15 @@ export class Entity {
         if (typeof toolResponse !== "string") {
           await toolResponse[1]();
         }
+      }
+
+      // Force only one tool call per response
+      if (
+        response.choices[0].message.tool_calls &&
+        response.choices[0].message.tool_calls.length > 1
+      ) {
+        response.choices[0].message.tool_calls =
+          response.choices[0].message.tool_calls.slice(0, 1);
       }
     }
   }
