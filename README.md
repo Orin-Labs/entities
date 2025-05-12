@@ -113,3 +113,10 @@ await entity.chat("Hello, how are you?", {
 entity.exportToFile("./entities/test.json");
 const entity2 = Entity.importFromFile("./entities/test.json"); // Exact clone of the original entity.
 ```
+
+## TODO
+
+- [ ] Add email adapter.
+- [ ] Add phone adapter.
+- [ ] Allow adapters to forcibly wake the entity, like getting a phone call.
+- [ ] Build a proper testing suite, probably with another LLM as the tester.
