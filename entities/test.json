@@ -2,12 +2,12 @@
   "id": "new-entity",
   "stm": {},
   "ltm": {
-    "2025-05-12T13:27:29.879Z": "Summary for Long Term Memory:\n\nDuring this brief wake cycle, I checked for new data upon being woken. I found a casual message (\"heyyy\") from John Doe via SMS and responded in kind (\"Heyyy! What's up?\") to maintain the friendliness and engagement in the relationship. There were no other new tasks or relevant updates related to broader goals, so I returned to sleep mode until further action is needed.\n\nKey Points to Remember:\n- Communication channel: SMS\n- Identity: John Doe sent a casual greeting\n- Prompt and friendly reply was sent to maintain rapport\n- No other task or data requiring immediate attention during this interval",
-    "2025-05-12T14:28:20.414Z": "On this cycle, I was woken up to check for any outstanding tasks or communications relevant to ongoing goals. I checked incoming data and found 51 new SMS messages from John Doe, escalating from initial greetings (\"heloo? are you there?\") to frustration (\"where tf are you 😠...\"). This indicated concern or urgency from the contact.\n\nI replied promptly to John, apologizing for missing his messages and asking what was happening. With no immediate additional tasks, I returned to sleep mode awaiting further input.\n\nWorth remembering:\n- John Doe was increasingly anxious due to lack of response.\n- I proactively replied to resolve the situation.\n- Communication happened via SMS.\n- No other adapters reported pending tasks.\nThis entry highlights the importance of timely responses in maintaining relationships and staying on track with interpersonal goals.",
-    "2025-05-13T14:30:38.304Z": "Journal Entry:\n\nJohn Doe reached out via SMS, asking for the current day and details about his last interaction. He inquired specifically about the emotional tone of his previous message, expressing concern that he may have been upset. After I explained that his earlier messages seemed frustrated, John apologized, acknowledging his tone. Overall, this brief conversation was focused on self-reflection and emotional awareness during communication. Worth noting: John values prompt responses and is attentive to the emotional impact of his messages."
+    "2025-05-12T02:46:13.009Z": "John Doe initiated a conversation via SMS with a simple greeting. The exchange was brief and casual, primarily serving as a check-in. There are no significant details or topics discussed worth noting beyond the friendly interaction. The conversation reflects a willingness to engage and maintain communication."
   },
-  "model": "gpt-4.1",
-  "adapters": ["sms"],
-  "timeOffset": 2160,
-  "sleepUntil": 1747063695748
+  "model": "gpt-4o-mini",
+  "adapters": [
+    "sms"
+  ],
+  "timeOffset": 0,
+  "sleepUntil": null
 }

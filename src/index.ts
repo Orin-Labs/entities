@@ -6,6 +6,13 @@ import { Entity } from './entity';
 dotenv.config();
 
 const entity = Entity.importFromFile("./entities/test.json");
+// const entity = new Entity({
+//   id: "default",
+//   model: "gpt-4o-mini",
+//   stm: new Memory<ChatCompletionMessageParam>({}, "gpt-4o-mini"),
+//   ltm: new Memory<string>({}, "gpt-4o-mini"),
+//   adapters: [new SMSAdapter()],
+// });
 
 export const rl = readline.createInterface({
   input: process.stdin,

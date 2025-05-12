@@ -14,9 +14,9 @@ export type EntityOptions = {
   model: string;
   stm: Memory<ChatCompletionMessageParam>;
   ltm: Memory<string>; // long term memory
-  adapters: Adapter[];
-  timeOffset: number;
-  sleepUntil: Date | null;
+  adapters?: Adapter[];
+  timeOffset?: number;
+  sleepUntil?: Date | null;
 };
 
 type ChatOptions = {
@@ -41,10 +41,18 @@ export class Entity {
     if (!options.timeOffset) {
       options.timeOffset = 0;
     }
+
+    if (!options.adapters) {
+      options.adapters = [];
+    }
+
+    if (!options.sleepUntil) {
+      options.sleepUntil = null;
+    }
   }
 
   getCurrentTime() {
-    return new Date(Date.now() + this.options.timeOffset * 60 * 1000);
+    return new Date(Date.now() + (this.options.timeOffset || 0) * 60 * 1000);
   }
 
   static importFromFile(path: string) {
@@ -101,7 +109,7 @@ export class Entity {
       JSON.stringify(
         {
           ...this.options,
-          adapters: this.options.adapters.map((a) => a.name),
+          adapters: this.options.adapters?.map((a) => a.name),
           stm: this.options.stm.messages,
           ltm: this.options.ltm.messages,
           timeOffset: this.options.timeOffset,
@@ -151,7 +159,10 @@ export class Entity {
     this.options.sleepUntil = null;
 
     // Collect all available tools from adapters and global tools
-    const tools = [...this.options.adapters.flatMap((a) => a.tools), ...TOOLS];
+    const tools = [
+      ...(this.options.adapters?.flatMap((a) => a.tools) || []),
+      ...TOOLS,
+    ];
 
     // Add initial wake-up message to short-term memory
     const wakeupMessage: ChatCompletionMessageParam = {
@@ -229,7 +240,10 @@ export class Entity {
   }
 
   async checkWakeup() {
-    if (this.options.sleepUntil === null) {
+    if (
+      this.options.sleepUntil === null ||
+      this.options.sleepUntil === undefined
+    ) {
       logger.info("No sleep time set, skipping wakeup check");
       return;
     }
@@ -248,6 +262,9 @@ export class Entity {
   }
 
   shiftTime(minutes: number) {
+    if (this.options.timeOffset === undefined) {
+      this.options.timeOffset = 0;
+    }
     this.options.timeOffset += minutes;
     this.options.stm.timeOffset += minutes;
     this.options.ltm.timeOffset += minutes;
