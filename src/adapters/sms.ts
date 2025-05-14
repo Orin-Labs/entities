@@ -1,6 +1,7 @@
-import axios from 'axios';
 import { parsePhoneNumber } from 'libphonenumber-js';
 
+import { ApiClient } from '../api';
+import { API_CONFIG } from '../api/config';
 import { Entity } from '../entity';
 import {
   Tool,
@@ -8,8 +9,6 @@ import {
 } from '../tools';
 import { logger } from '../utils';
 import { Adapter } from './index';
-
-const SMS_SERVER_URL = process.env.SMS_SERVER_URL || "http://localhost:3000";
 
 class SMSReadTool extends Tool {
   name = "sms_read";
@@ -38,22 +37,26 @@ class SMSReadTool extends Tool {
         logger.error("Invalid phone number format", phoneNumber);
         return "Invalid phone number format. Please use the format +1XXXXXXXXXX";
       }
-      const response = await axios.get(
-        `${SMS_SERVER_URL}/conversations/${parsedPhoneNumber.number}`
-      );
-      const conversation = response.data;
 
-      if (!conversation.messages.length) {
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
+      );
+
+      // Get messages using the API endpoint
+      const messages = await client.getEntityMessages();
+
+      // Filter messages for the specific phone number if needed
+      // This depends on how the API actually returns the messages
+
+      if (!messages || (Array.isArray(messages) && !messages.length)) {
         logger.error("No messages found for this number");
         return "No messages found for this number";
       }
 
-      // Get the most recent 100 messages
-      const last100Messages = conversation.messages.slice(-100);
-      logger.info(
-        `Found ${last100Messages.length} messages for ${phoneNumber}`
-      );
-      return JSON.stringify(last100Messages);
+      logger.info(`Retrieved messages for ${phoneNumber}`);
+      return JSON.stringify(messages);
     } catch (error) {
       logger.error("Error reading SMS:", error);
       return "Failed to read messages";
@@ -90,16 +93,21 @@ class SMSSendTool extends Tool {
         logger.error("Invalid phone number format", phoneNumber);
         return "Invalid phone number format. Please use the format +1XXXXXXXXXX";
       }
-      await axios.post(`${SMS_SERVER_URL}/send_message`, {
-        message,
-        phoneNumber,
-      });
+
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
+      );
+
+      // Send message using the API endpoint
+      await client.sendEntityMessage(phoneNumber, message);
 
       logger.info("SMS sent successfully");
       return "SMS sent successfully";
-    } catch (error) {
-      logger.error("Error sending SMS:", error);
-      return "Failed to send SMS";
+    } catch (error: any) {
+      logger.error("Error sending SMS to " + phoneNumber + ":", error.response);
+      return "Failed to send SMS to " + phoneNumber + ". " + error.response;
     }
   }
 }

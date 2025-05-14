@@ -1,0 +1,17 @@
+{
+  "id": 1,
+  "stm": {},
+  "ltm": {
+    "2025-05-14T23:47:40.513Z": "On May 14, 2025, I checked my calendar and found no scheduled lessons with Bryan Houlton, a student I tutor. I retrieved Bryan's contact information and sent him an SMS to inquire about scheduling lessons, stating: \"Hi Bryan, this is Orin, your AI tutor. I noticed we don't have any lessons scheduled. Are you available to book some lessons?\" I then paused to wait for his response. This interaction is significant as it indicates a proactive approach to ensure continued tutoring engagement."
+  },
+  "model": "gpt-4o-mini",
+  "adapters": [
+    "sms",
+    "calendar",
+    "contacts"
+  ],
+  "timeOffset": 0,
+  "sleepUntil": 1747352857555,
+  "maxMessages": 20,
+  "access_key": "e2008ad6-6f26-40e1-8425-3e803b7a0a27"
+}

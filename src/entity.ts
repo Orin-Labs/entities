@@ -2,6 +2,7 @@ import dedent from 'dedent';
 import fs from 'fs';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
+import path from 'path';
 
 import { Adapter } from './adapters';
 import { ADAPTERS } from './adapters/list';
@@ -18,6 +19,7 @@ export type EntityOptions = {
   adapters?: Adapter[];
   timeOffset?: number;
   sleepUntil?: Date | null;
+  access_key?: string; // Access key for API authentication
 };
 
 type ChatOptions = {
@@ -98,6 +100,7 @@ export class Entity {
         timeOffset: options.timeOffset,
         sleepUntil: options.sleepUntil ? new Date(options.sleepUntil) : null,
         maxMessages: options.maxMessages,
+        access_key: options.access_key,
       });
     } catch (error) {
       const model = "gpt-4.1-mini";
@@ -109,6 +112,7 @@ export class Entity {
         adapters: [],
         timeOffset: 0,
         sleepUntil: null,
+        access_key: undefined,
       });
       entity.exportToFile(path);
       return entity;
@@ -129,6 +133,7 @@ export class Entity {
           sleepUntil: this.options.sleepUntil
             ? this.options.sleepUntil.getTime()
             : null,
+          access_key: this.options.access_key,
         },
         null,
         2
@@ -229,6 +234,11 @@ export class Entity {
           response.choices[0].message.tool_calls.slice(0, 1);
       }
     }
+
+    // Export to file
+    this.exportToFile(
+      path.join(process.cwd(), "entities", `${this.options.id}.json`)
+    );
   }
 
   async chat(message: string, options?: ChatOptions) {

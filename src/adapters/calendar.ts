@@ -1,5 +1,5 @@
-import axios from 'axios';
-
+import { ApiClient } from '../api';
+import { API_CONFIG } from '../api/config';
 import { Entity } from '../entity';
 import {
   Tool,
@@ -8,18 +8,14 @@ import {
 import { logger } from '../utils';
 import { Adapter } from './index';
 
-const CALENDAR_SERVER_URL =
-  process.env.CALENDAR_SERVER_URL || "http://localhost:3001";
+// Initialize a base API client
+const apiClient = new ApiClient(API_CONFIG.baseURL);
 
 class CalendarReadTool extends Tool {
   name = "calendar_read";
   description =
     "Read events from a calendar. If you find any duplicate events, please merge them into a single event.";
   parameters = {
-    calendarId: {
-      type: "string",
-      description: "The ID of the calendar to read events from",
-    },
     startTime: {
       type: "string",
       description: "Optional start time to filter events (ISO format)",
@@ -34,29 +30,22 @@ class CalendarReadTool extends Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    const { calendarId, startTime, endTime } = parameters;
-
-    if (!calendarId) {
-      logger.error("No calendar ID provided");
-      return "Please provide a calendar ID to read events from";
-    }
-
     try {
-      const response = await axios.get(
-        `${CALENDAR_SERVER_URL}/calendars/${calendarId}/events`,
-        {
-          params: { startTime, endTime },
-        }
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
       );
 
-      const { events } = response.data;
+      // Get all events from the new endpoint
+      const events = await client.listEvents();
 
-      if (!events.length) {
-        logger.info("No events found for this calendar");
-        return "No events found for this calendar";
+      if (!events || !events.length) {
+        logger.info("No events found");
+        return "No events found";
       }
 
-      logger.info(`Found ${events.length} events for calendar ${calendarId}`);
+      logger.info(`Found ${events.length} events`);
       return JSON.stringify(events);
     } catch (error) {
       logger.error("Error reading calendar events:", error);
@@ -65,17 +54,52 @@ class CalendarReadTool extends Tool {
   }
 }
 
+class CalendarGetEventTool extends Tool {
+  name = "calendar_get_event";
+  description = "Get details for a specific calendar event";
+  parameters = {
+    eventId: {
+      type: "string",
+      description: "The ID of the event to retrieve",
+    },
+  };
+
+  async execute(
+    entity: Entity,
+    parameters: Record<string, any>
+  ): Promise<ToolResponse> {
+    const { eventId } = parameters;
+
+    if (!eventId) {
+      logger.error("No event ID provided");
+      return "Please provide an event ID to get details";
+    }
+
+    try {
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
+      );
+
+      const event = await client.getEvent(eventId);
+
+      logger.info(`Retrieved event details for ${eventId}`);
+      return JSON.stringify(event);
+    } catch (error) {
+      logger.error("Error getting event details:", error);
+      return "Failed to get event details";
+    }
+  }
+}
+
 class CalendarCreateTool extends Tool {
   name = "calendar_create";
   description = "Create a new calendar event";
   parameters = {
-    calendarId: {
+    title: {
       type: "string",
-      description: "The ID of the calendar to create the event in",
-    },
-    summary: {
-      type: "string",
-      description: "The title/summary of the event",
+      description: "The title of the event",
     },
     description: {
       type: "string",
@@ -89,16 +113,9 @@ class CalendarCreateTool extends Tool {
       type: "string",
       description: "End time of the event (ISO format)",
     },
-    timeZone: {
-      type: "string",
-      description: "Time zone for the event (e.g., 'America/New_York')",
-    },
-    attendees: {
-      type: "array",
-      description: "Optional array of attendee email addresses",
-      items: {
-        type: "string",
-      },
+    allDay: {
+      type: "boolean",
+      description: "Whether this is an all-day event",
     },
   };
 
@@ -106,46 +123,109 @@ class CalendarCreateTool extends Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    const {
-      calendarId,
-      summary,
-      description,
-      startTime,
-      endTime,
-      timeZone,
-      attendees,
-    } = parameters;
+    const { title, description, startTime, endTime, allDay } = parameters;
 
-    if (!calendarId || !summary || !startTime || !endTime || !timeZone) {
+    if (!title || !startTime || !endTime) {
       logger.error("Missing required parameters");
-      return "Please provide all required parameters: calendarId, summary, startTime, endTime, and timeZone";
+      return "Please provide all required parameters: title, startTime, and endTime";
     }
 
     try {
-      const event = {
-        summary,
-        description,
-        start: {
-          dateTime: startTime,
-          timeZone,
-        },
-        end: {
-          dateTime: endTime,
-          timeZone,
-        },
-        attendees: attendees?.map((email: string) => ({ email })),
-      };
-
-      const response = await axios.post(
-        `${CALENDAR_SERVER_URL}/calendars/${calendarId}/events`,
-        event
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
       );
 
-      logger.info(`Created event in calendar ${calendarId}`);
-      return JSON.stringify(response.data.event);
+      const eventRequest = {
+        calendar: 1, // Since we don't specify a calendar ID anymore, default to primary (ID 1)
+        title,
+        description,
+        start_time: startTime,
+        end_time: endTime,
+        all_day: allDay || false,
+      };
+
+      const response = await client.createEvent(eventRequest);
+
+      logger.info(`Created event: ${title}`);
+      return JSON.stringify(response);
     } catch (error) {
       logger.error("Error creating calendar event:", error);
       return "Failed to create calendar event";
+    }
+  }
+}
+
+class CalendarUpdateTool extends Tool {
+  name = "calendar_update";
+  description = "Update an existing calendar event";
+  parameters = {
+    eventId: {
+      type: "string",
+      description: "The ID of the event to update",
+    },
+    title: {
+      type: "string",
+      description: "The updated title of the event",
+    },
+    description: {
+      type: "string",
+      description: "Optional updated description of the event",
+    },
+    startTime: {
+      type: "string",
+      description: "Updated start time of the event (ISO format)",
+    },
+    endTime: {
+      type: "string",
+      description: "Updated end time of the event (ISO format)",
+    },
+    allDay: {
+      type: "boolean",
+      description: "Whether this is an all-day event",
+    },
+  };
+
+  async execute(
+    entity: Entity,
+    parameters: Record<string, any>
+  ): Promise<ToolResponse> {
+    const { eventId, title, description, startTime, endTime, allDay } =
+      parameters;
+
+    if (
+      !eventId ||
+      (!title && !description && !startTime && !endTime && allDay === undefined)
+    ) {
+      logger.error("Missing required parameters");
+      return "Please provide an event ID and at least one field to update";
+    }
+
+    try {
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
+      );
+
+      const updateData: any = {
+        calendar: 1, // Since we don't specify a calendar ID anymore, default to primary (ID 1)
+      };
+
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      if (startTime !== undefined) updateData.start_time = startTime;
+      if (endTime !== undefined) updateData.end_time = endTime;
+      if (allDay !== undefined) updateData.all_day = allDay;
+
+      const response = await client.patchEvent(eventId, updateData);
+
+      logger.info(`Updated event ${eventId}`);
+      return JSON.stringify(response);
+    } catch (error) {
+      logger.error("Error updating calendar event:", error);
+      return "Failed to update calendar event";
     }
   }
 }
@@ -154,10 +234,6 @@ class CalendarDeleteTool extends Tool {
   name = "calendar_delete";
   description = "Delete a calendar event";
   parameters = {
-    calendarId: {
-      type: "string",
-      description: "The ID of the calendar containing the event",
-    },
     eventId: {
       type: "string",
       description: "The ID of the event to delete",
@@ -168,19 +244,23 @@ class CalendarDeleteTool extends Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    const { calendarId, eventId } = parameters;
+    const { eventId } = parameters;
 
-    if (!calendarId || !eventId) {
-      logger.error("Missing calendar ID or event ID");
-      return "Please provide both calendar ID and event ID";
+    if (!eventId) {
+      logger.error("Missing event ID");
+      return "Please provide an event ID";
     }
 
     try {
-      await axios.delete(
-        `${CALENDAR_SERVER_URL}/calendars/${calendarId}/events/${eventId}`
+      // Create a client with the entity's access key
+      const client = new ApiClient(
+        API_CONFIG.baseURL,
+        entity.options.access_key
       );
 
-      logger.info(`Deleted event ${eventId} from calendar ${calendarId}`);
+      await client.deleteEvent(eventId);
+
+      logger.info(`Deleted event ${eventId}`);
       return "Event deleted successfully";
     } catch (error) {
       logger.error("Error deleting calendar event:", error);
@@ -192,10 +272,12 @@ class CalendarDeleteTool extends Tool {
 export class CalendarAdapter extends Adapter {
   name = "calendar";
   description =
-    "Allows the entity to read, create, and delete calendar events.";
+    "Allows the entity to read, create, update, and delete calendar events.";
   tools: Tool[] = [
     new CalendarReadTool(),
+    new CalendarGetEventTool(),
     new CalendarCreateTool(),
+    new CalendarUpdateTool(),
     new CalendarDeleteTool(),
   ];
 }

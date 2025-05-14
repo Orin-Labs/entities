@@ -1,9 +1,0 @@
-{
-  "id": "new-entity",
-  "stm": {},
-  "ltm": {},
-  "model": "gpt-4.1",
-  "adapters": ["sms", "calendar"],
-  "timeOffset": 0,
-  "sleepUntil": null
-}

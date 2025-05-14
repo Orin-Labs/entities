@@ -100,10 +100,49 @@ class RequestNewToolTool extends Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    logger.alert(
+    logger.warn(
       `Requesting new tool: ${parameters.tool}. Please implement this tool and add it to the list of tools.`
     );
     return "Tool requested";
+  }
+}
+
+class ReportIssueTool extends Tool {
+  name = "reportIssue";
+  description = "Report an issue with the system to the developers.";
+  parameters = {
+    issue: { type: "string", description: "The issue to report" },
+  };
+  async execute(
+    entity: Entity,
+    parameters: Record<string, any>
+  ): Promise<ToolResponse> {
+    logger.warn("Reporting issue: " + parameters.issue);
+    // Send the issue to Slack webhook
+    try {
+      const webhookUrl =
+        "https://hooks.slack.com/services/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";
+      const payload = {
+        text: `Issue reported by entity ${entity.options.id}: ${parameters.issue}`,
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        logger.error(`Failed to send issue to Slack: ${response.statusText}`);
+      } else {
+        logger.info("Issue successfully reported to Slack");
+      }
+    } catch (error) {
+      logger.error(`Error sending issue to Slack: ${error}`);
+    }
+    return "Issue reported";
   }
 }
 

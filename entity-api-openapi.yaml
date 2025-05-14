@@ -1,0 +1,358 @@
+openapi: 3.0.3
+info:
+  title: Entity API
+  version: 1.0.0
+  description: API for managing autonomous AI entities with adapters for contacts, calendars, and SMS
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+tags:
+  - name: entities
+    description: Operations for managing entities
+  - name: adapters
+    description: Operations for managing entity adapters
+paths:
+  /api/entities:
+    post:
+      operationId: createEntity
+      summary: Create a new entity
+      description: Creates a new entity with the specified configuration
+      tags:
+        - entities
+      security:
+        - MasterAccessKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntityRequest"
+      responses:
+        "201":
+          description: Entity created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: The ID of the created entity
+                  message:
+                    type: string
+                    description: Success message
+                  entity_path:
+                    type: string
+                    description: Path to the entity file on the server
+        "400":
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict - entity with this ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - invalid master access key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/entities/{id}:
+    get:
+      operationId: getEntity
+      summary: Get entity information
+      description: Returns information about the specified entity
+      tags:
+        - entities
+      security:
+        - EntityAccessKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Entity ID
+      responses:
+        "200":
+          description: Entity information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityInfo"
+        "404":
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - invalid entity access key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteEntity
+      summary: Delete an entity
+      description: Deletes the specified entity
+      tags:
+        - entities
+      security:
+        - EntityAccessKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Entity ID
+      responses:
+        "204":
+          description: Entity deleted successfully
+        "404":
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - invalid entity access key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/entities/{id}/adapters:
+    post:
+      operationId: addAdapter
+      summary: Add an adapter to an entity
+      description: Adds the specified adapter to the entity
+      tags:
+        - adapters
+      security:
+        - EntityAccessKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Entity ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - adapter_name
+              properties:
+                adapter_name:
+                  type: string
+                  description: Name of the adapter to add
+                  enum: [contacts, calendar, sms]
+      responses:
+        "200":
+          description: Adapter added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Entity ID
+                  adapters:
+                    type: array
+                    items:
+                      type: string
+                    description: List of adapter names attached to the entity
+        "400":
+          description: Bad request - missing adapter name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Entity or adapter not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict - adapter already added to entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - invalid entity access key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: getAdapters
+      summary: Get entity adapters
+      description: Returns information about the adapters attached to the entity
+      tags:
+        - adapters
+      security:
+        - EntityAccessKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Entity ID
+      responses:
+        "200":
+          description: List of entity adapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adapters:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdapterInfo"
+        "404":
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - invalid entity access key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/entities/{id}/adapters/{adapter}:
+    delete:
+      operationId: removeAdapter
+      summary: Remove an adapter from an entity
+      description: Removes the specified adapter from the entity
+      tags:
+        - adapters
+      security:
+        - EntityAccessKey: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Entity ID
+        - in: path
+          name: adapter
+          required: true
+          schema:
+            type: string
+          description: Adapter name
+      responses:
+        "204":
+          description: Adapter removed successfully
+        "404":
+          description: Entity or adapter not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized - invalid entity access key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    MasterAccessKey:
+      type: apiKey
+      in: header
+      name: X-Access-Key
+      description: Master access key for creating entities
+    EntityAccessKey:
+      type: apiKey
+      in: header
+      name: X-Access-Key
+      description: Entity-specific access key for entity operations
+  schemas:
+    EntityRequest:
+      type: object
+      required:
+        - id
+        - model
+        - access_key
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the entity
+        model:
+          type: string
+          description: OpenAI model to use for the entity
+          example: gpt-4o-mini
+        access_key:
+          type: string
+          description: Access key for entity authentication
+        adapters:
+          type: array
+          items:
+            type: string
+          description: List of adapter names to attach to the entity (all adapters are enabled by default)
+          default: ["contacts", "calendar", "sms"]
+    EntityInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Entity ID
+        model:
+          type: string
+          description: OpenAI model used by the entity
+        adapters:
+          type: array
+          items:
+            type: string
+          description: List of adapter names attached to the entity
+        created_at:
+          type: string
+          format: date-time
+          description: When the entity was created
+        last_modified:
+          type: string
+          format: date-time
+          description: When the entity was last modified
+    AdapterInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Adapter name
+        description:
+          type: string
+          description: Adapter description
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Tool name
+              description:
+                type: string
+                description: Tool description
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message

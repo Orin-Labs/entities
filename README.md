@@ -1,5 +1,13 @@
 Here, I introduce the concept of an AI entity. An entity is essentially a much more complex AI agent, but with a few key criteria:
 
+## API Configuration
+
+This project now uses an API client to interact with the backend services. The API client is configured using environment variables:
+
+- `API_BASE_URL`: The base URL of the API (defaults to 'http://localhost:8000')
+
+You can set these in a `.env` file at the root of the project.
+
 ## Omni-channel
 
 Entities should be able to communicate through multiple channels like phone, SMS, email, etc.
