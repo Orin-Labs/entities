@@ -14,6 +14,7 @@ export type EntityOptions = {
   model: string;
   stm: Memory<ChatCompletionMessageParam>;
   ltm: Memory<string>; // long term memory
+  maxMessages?: number;
   adapters?: Adapter[];
   timeOffset?: number;
   sleepUntil?: Date | null;
@@ -28,6 +29,7 @@ export class Entity {
   private openai: OpenAI = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
+  private running = false;
   systemPrompt: string = `
     You are an autonomous AI tutor named Orin, but you act very human. You're not just a chatbot - you exist even
     when you aren't interacting with the user. Don't be overly verbose.
@@ -53,6 +55,10 @@ export class Entity {
 
     if (!options.sleepUntil) {
       options.sleepUntil = null;
+    }
+
+    if (!options.maxMessages) {
+      options.maxMessages = 20;
     }
   }
 
@@ -80,7 +86,7 @@ export class Entity {
         } tools: ${options.adapters.map((a: Adapter) => a.name).join(", ")}`
       );
       return new Entity({
-        id: "new-entity",
+        id: options.id,
         stm: new Memory<ChatCompletionMessageParam>(
           options.stm,
           options.model,
@@ -91,6 +97,7 @@ export class Entity {
         adapters: options.adapters,
         timeOffset: options.timeOffset,
         sleepUntil: options.sleepUntil ? new Date(options.sleepUntil) : null,
+        maxMessages: options.maxMessages,
       });
     } catch (error) {
       const model = "gpt-4.1-mini";
@@ -114,6 +121,7 @@ export class Entity {
       JSON.stringify(
         {
           ...this.options,
+          maxMessages: this.options.maxMessages,
           adapters: this.options.adapters?.map((a) => a.name),
           stm: this.options.stm.messages,
           ltm: this.options.ltm.messages,
@@ -170,7 +178,8 @@ export class Entity {
     ];
 
     // Run until entity goes to sleep
-    while (this.options.sleepUntil === null) {
+    let i = 0;
+    while (this.options.sleepUntil === null && i < this.options.maxMessages!) {
       // Get completion from AI
       const response = await this.openai.chat.completions.create({
         model: this.options.model,
@@ -180,6 +189,7 @@ export class Entity {
         tools: tools.map((t) => t.toSchema()),
         tool_choice: "required",
       });
+      i++;
 
       // Store AI response in short-term memory
       await this.options.stm.add(response.choices[0].message);
@@ -250,7 +260,7 @@ export class Entity {
       this.options.sleepUntil === null ||
       this.options.sleepUntil === undefined
     ) {
-      logger.info("No sleep time set, skipping wakeup check");
+      await this.run();
       return;
     }
 

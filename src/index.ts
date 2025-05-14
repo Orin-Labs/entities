@@ -1,97 +1,57 @@
 import dotenv from 'dotenv';
-import readline from 'readline';
+import fs from 'fs';
+import path from 'path';
 
 import { Entity } from './entity';
+import { logger } from './utils';
 
 dotenv.config();
 
-const entity = Entity.importFromFile("./entities/test.json");
-// const entity = new Entity({
-//   id: "default",
-//   model: "gpt-4o-mini",
-//   stm: new Memory<ChatCompletionMessageParam>({}, "gpt-4o-mini"),
-//   ltm: new Memory<string>({}, "gpt-4o-mini"),
-//   adapters: [new SMSAdapter()],
-// });
+// Track entities that are currently being processed
+const runningEntities = new Set<string>();
 
-export const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+// Function to check if an entity needs to wake up
+async function checkEntityWakeUp(entityPath: string): Promise<void> {
+  // Skip if this entity is already running
+  if (runningEntities.has(entityPath)) {
+    logger.info(`Entity at ${entityPath} is already running, skipping`);
+    return;
+  }
 
-console.log(
-  'CLI Environment started. Type "run" to run the entity, "exit" to export and quit, "shift <minutes>" to shift time, or any other text to chat with the entity.'
-);
+  try {
+    // Mark entity as running
+    runningEntities.add(entityPath);
 
-function promptUser() {
-  rl.question("> ", (command) => {
-    const lowerCommand = command.toLowerCase();
-
-    switch (lowerCommand) {
-      case "run":
-        console.log("Running entity...");
-        entity.run().then(() => {
-          console.log("Entity run complete.");
-          promptUser();
-        });
-        break;
-
-      case "exit":
-        console.log("Exporting entity and exiting...");
-        entity.exportToFile("./entities/test.json");
-        rl.close();
-        break;
-
-      case "enshrine":
-        console.log("Enshrining entity...");
-        entity.enshrine().then(() => {
-          console.log("Entity enshrined.");
-          promptUser();
-        });
-        break;
-
-      case "clear":
-        console.log("Clearing entity memory...");
-        entity.options.stm.clear();
-        console.log("Entity memory cleared.");
-        promptUser();
-        break;
-
-      case "check":
-        console.log("Checking wakeup...");
-        entity.checkWakeup().then(() => {
-          console.log("Wakeup check complete.");
-          promptUser();
-        });
-        break;
-
-      default:
-        if (lowerCommand.startsWith("shift ")) {
-          const minutes = parseInt(command.split(" ")[1]);
-          if (!isNaN(minutes)) {
-            console.log(`Shifting time by ${minutes} minutes...`);
-            entity.shiftTime(minutes);
-            console.log(
-              `Current time: ${entity.getCurrentTime().toISOString()}`
-            );
-          } else {
-            console.log("Invalid time shift. Format: shift <minutes>");
-          }
-          promptUser();
-        } else {
-          entity
-            .chat(command, {
-              channel: "sms",
-              identity: "John Doe",
-            })
-            .then((response) => {
-              console.log("Entity: " + response);
-              promptUser();
-            });
-        }
-        break;
-    }
-  });
+    const entity = Entity.importFromFile(entityPath);
+    await entity.checkWakeup();
+  } catch (error) {
+    logger.error(`Error checking entity at ${entityPath}: ${error}`);
+  } finally {
+    // Remove entity from running set when done
+    runningEntities.delete(entityPath);
+  }
 }
 
-promptUser();
+// Function to scan the entities directory
+async function scanEntities(): Promise<void> {
+  const entitiesDir = path.join(process.cwd(), "entities");
+
+  try {
+    const files = fs.readdirSync(entitiesDir);
+    const jsons = files.filter((file) => file.endsWith(".json"));
+    logger.info(`Found ${jsons.length} entities`);
+    const promises = jsons.map((file) => {
+      const entityPath = path.join(entitiesDir, file);
+      return checkEntityWakeUp(entityPath);
+    });
+    await Promise.all(promises);
+  } catch (error) {
+    logger.error(`Error scanning entities directory: ${error}`);
+  }
+}
+
+// Set up interval to check entities every minute
+setInterval(scanEntities, 60000);
+
+// Run once at startup
+scanEntities();
