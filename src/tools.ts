@@ -18,9 +18,10 @@ export abstract class Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    logger.info(
+    logger.debug(
       `Executing ${this.name} with parameters: ${JSON.stringify(parameters)}`
     );
+    logger.info("Reasoning: " + parameters.reasoning);
     return this.execute(entity, parameters);
   }
 
@@ -52,6 +53,7 @@ class SleepTool extends Tool {
   parameters = {
     until: { type: "string", description: "The time to sleep until" },
   };
+
   async execute(
     entity: Entity,
     parameters: Record<string, any>
@@ -60,7 +62,7 @@ class SleepTool extends Tool {
     const minutesLeft = Math.round(
       (until.getTime() - entity.getCurrentTime().getTime()) / 60000
     );
-    console.log(`Sleeping for ${minutesLeft} minutes...`);
+    logger.info(`Sleeping for ${minutesLeft} minutes...`);
     return [
       "sleeping",
       async () => {
@@ -68,6 +70,23 @@ class SleepTool extends Tool {
         entity.options.sleepUntil = until;
       },
     ];
+  }
+}
+
+class PlanTool extends Tool {
+  name = "plan";
+  description =
+    "Plan a given task. You must use this tool as the first tool after any wake up. This tool does nothing, but you must write your plan out before doing anything.";
+  parameters = {
+    plan: { type: "string", description: "The plan to execute" },
+  };
+
+  async execute(
+    entity: Entity,
+    parameters: Record<string, any>
+  ): Promise<ToolResponse> {
+    logger.warn(`Plan: ${parameters.plan}`);
+    return "Task planned";
   }
 }
 
@@ -88,4 +107,8 @@ class RequestNewToolTool extends Tool {
   }
 }
 
-export const TOOLS = [new SleepTool(), new RequestNewToolTool()];
+export const TOOLS = [
+  new SleepTool(),
+  new RequestNewToolTool(),
+  new PlanTool(),
+];
