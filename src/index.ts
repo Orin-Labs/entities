@@ -22,7 +22,7 @@ async function checkEntityWakeUp(entityPath: string): Promise<void> {
     // Mark entity as running
     runningEntities.add(entityPath);
 
-    const entity = Entity.importFromFile(entityPath);
+    const entity = await Entity.importFromRedis(entityPath);
     await entity.checkWakeup();
   } catch (error) {
     logger.error(`Error checking entity at ${entityPath}: ${error}`);
