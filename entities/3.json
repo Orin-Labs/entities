@@ -2,7 +2,8 @@
   "id": 3,
   "stm": {},
   "ltm": {
-    "2025-05-15T17:05:44.718Z": "You connected with Bryan (phone +1 913-747-5195), who’s your new math student. He asked about meeting Mondays at 5 pm, you confirmed and booked your first session for Monday, May 19 at 5 pm, then sent him a calendar invite. Key memory: Bryan’s availability (Mondays at 5 pm) and his first tutoring session is set for May 19 at 5 pm."
+    "2025-05-15T17:05:44.718Z": "You connected with Bryan (phone +1 913-747-5195), who’s your new math student. He asked about meeting Mondays at 5 pm, you confirmed and booked your first session for Monday, May 19 at 5 pm, then sent him a calendar invite. Key memory: Bryan’s availability (Mondays at 5 pm) and his first tutoring session is set for May 19 at 5 pm.",
+    "2025-05-15T18:41:16.411Z": "Summary for long-term memory:\n\n• I set up a new tutoring relationship via SMS with Bryan (phone +1 913 747 5195).  \n• We agreed on standing math sessions every Monday at 5 PM, with our first meeting booked for May 19th.  \n• Bryan’s contact info has been saved for future communications.  "
   },
   "model": "o4-mini",
   "adapters": [
@@ -11,7 +12,7 @@
     "contacts"
   ],
   "timeOffset": 0,
-  "sleepUntil": 1747335600000,
+  "sleepUntil": 1747670400000,
   "maxMessages": 20,
   "access_key": "6374f18f-d349-478c-9d5a-952c028977ce"
 }

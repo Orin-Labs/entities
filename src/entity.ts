@@ -31,7 +31,6 @@ export class Entity {
   private openai: OpenAI = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
-  private running = false;
   systemPrompt: string = `
     You are an autonomous AI tutor named Orin, but you act very human. You're not just a chatbot - you exist even
     when you aren't interacting with the user. Don't be overly verbose.
