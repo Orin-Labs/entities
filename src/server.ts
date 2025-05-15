@@ -1,12 +1,15 @@
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import express, { RequestHandler } from 'express';
-import fs from 'fs';
-import path from 'path';
 
 import { ADAPTERS } from './adapters/list';
 import { Entity } from './entity';
 import { Memory } from './memory';
+import {
+  getEntitiesListKey,
+  getEntityKey,
+  redis,
+} from './redis/config';
 import { logger } from './utils';
 
 dotenv.config();
@@ -30,26 +33,16 @@ const validateAccessKey: RequestHandler = (req, res, next) => {
   next();
 };
 
-// Ensure entities directory exists
-const entitiesDir = path.join(process.cwd(), "entities");
-if (!fs.existsSync(entitiesDir)) {
-  fs.mkdirSync(entitiesDir, { recursive: true });
-}
-
 // Function to check which entities should wake up
 const checkEntitiesForWakeup = async () => {
   try {
     logger.info("Checking for entities that need to wake up");
 
-    // Read all entity files in the entities directory
-    const entityFiles = fs
-      .readdirSync(entitiesDir)
-      .filter((file) => file.endsWith(".json"));
+    // Get all entity IDs from Redis
+    const entityIds = await redis.smembers(getEntitiesListKey());
 
     // Check each entity if it's time to wake up
-    for (const file of entityFiles) {
-      const id = path.basename(file, ".json");
-
+    for (const id of entityIds) {
       // Skip if this entity is already running
       if (runningEntityIds.has(id)) {
         logger.info(
@@ -58,8 +51,7 @@ const checkEntitiesForWakeup = async () => {
         continue;
       }
 
-      const entityPath = path.join(entitiesDir, file);
-      const entity = Entity.importFromFile(entityPath);
+      const entity = await Entity.importFromRedis(id);
 
       // If it's time to wake up, mark as running before starting
       if (
@@ -103,8 +95,9 @@ app.post("/api/entities", validateAccessKey, (async (req, res) => {
     }
 
     // Check if entity already exists
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-    if (fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (exists) {
       return res
         .status(409)
         .json({ error: "Entity with this ID already exists" });
@@ -122,15 +115,14 @@ app.post("/api/entities", validateAccessKey, (async (req, res) => {
       access_key,
     });
 
-    // Export entity to file
-    entity.exportToFile(entityPath);
+    // Export entity to Redis
+    await entity.exportToRedis();
 
     logger.info(`Created new entity with ID: ${id} with all adapters enabled`);
 
     res.status(201).json({
       id,
       message: "Entity created successfully with all adapters enabled",
-      entity_path: entityPath,
       adapters: ADAPTERS.map((adapter) => adapter.name),
     });
   } catch (error) {
@@ -145,14 +137,14 @@ app.get("/api/entities/:id", (async (req, res) => {
     const { id } = req.params;
     const accessKey = req.headers["x-access-key"];
 
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-
-    if (!fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (!exists) {
       return res.status(404).json({ error: "Entity not found" });
     }
 
     // Read entity file to verify access key
-    const entityData = JSON.parse(fs.readFileSync(entityPath, "utf8"));
+    const entityData = JSON.parse((await redis.get(entityKey)) || "{}");
 
     if (entityData.access_key !== accessKey) {
       return res
@@ -161,14 +153,14 @@ app.get("/api/entities/:id", (async (req, res) => {
     }
 
     // Load the entity
-    const entity = Entity.importFromFile(entityPath);
+    const entity = await Entity.importFromRedis(id);
 
     res.json({
       id: entity.options.id,
       model: entity.options.model,
       adapters: entity.options.adapters?.map((a) => a.name) || [],
-      created_at: fs.statSync(entityPath).birthtime,
-      last_modified: fs.statSync(entityPath).mtime,
+      created_at: entityData.created_at,
+      last_modified: entityData.last_modified,
     });
   } catch (error) {
     logger.error(`Error getting entity: ${error}`);
@@ -182,14 +174,14 @@ app.delete("/api/entities/:id", (async (req, res) => {
     const { id } = req.params;
     const accessKey = req.headers["x-access-key"];
 
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-
-    if (!fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (!exists) {
       return res.status(404).json({ error: "Entity not found" });
     }
 
     // Read entity file to verify access key
-    const entityData = JSON.parse(fs.readFileSync(entityPath, "utf8"));
+    const entityData = JSON.parse((await redis.get(entityKey)) || "{}");
 
     if (entityData.access_key !== accessKey) {
       return res
@@ -197,8 +189,8 @@ app.delete("/api/entities/:id", (async (req, res) => {
         .json({ error: "Unauthorized. Invalid access key for this entity." });
     }
 
-    // Delete the entity file
-    fs.unlinkSync(entityPath);
+    // Delete the entity from Redis
+    await redis.del(entityKey);
 
     logger.info(`Deleted entity with ID: ${id}`);
 
@@ -221,14 +213,14 @@ app.post("/api/entities/:id/wake", validateAccessKey, (async (req, res) => {
         .json({ error: "Missing entity_access_key in request body" });
     }
 
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-
-    if (!fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (!exists) {
       return res.status(404).json({ error: "Entity not found" });
     }
 
     // Read entity file to verify entity access key
-    const entityData = JSON.parse(fs.readFileSync(entityPath, "utf8"));
+    const entityData = JSON.parse((await redis.get(entityKey)) || "{}");
 
     if (entityData.access_key !== entity_access_key) {
       return res
@@ -237,13 +229,13 @@ app.post("/api/entities/:id/wake", validateAccessKey, (async (req, res) => {
     }
 
     // Load the entity
-    const entity = Entity.importFromFile(entityPath);
+    const entity = await Entity.importFromRedis(id);
 
     // Set sleepUntil to null to wake the entity
     entity.options.sleepUntil = null;
 
     // Save entity
-    entity.exportToFile(entityPath);
+    await entity.exportToRedis();
 
     // Start the entity's run process in the background with optional delay
     const runEntity = async () => {
@@ -296,14 +288,14 @@ app.post("/api/entities/:id/adapters", (async (req, res) => {
         .json({ error: "Missing adapter_name in request body" });
     }
 
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-
-    if (!fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (!exists) {
       return res.status(404).json({ error: "Entity not found" });
     }
 
     // Read entity file to verify access key
-    const entityData = JSON.parse(fs.readFileSync(entityPath, "utf8"));
+    const entityData = JSON.parse((await redis.get(entityKey)) || "{}");
 
     if (entityData.access_key !== accessKey) {
       return res
@@ -312,7 +304,7 @@ app.post("/api/entities/:id/adapters", (async (req, res) => {
     }
 
     // Load the entity
-    const entity = Entity.importFromFile(entityPath);
+    const entity = await Entity.importFromRedis(id);
 
     // Find adapter in available adapters
     const adapterToAdd = ADAPTERS.find((a) => a.name === adapter_name);
@@ -341,7 +333,7 @@ app.post("/api/entities/:id/adapters", (async (req, res) => {
     ];
 
     // Save entity
-    entity.exportToFile(entityPath);
+    await entity.exportToRedis();
 
     logger.info(`Added adapter '${adapter_name}' to entity ${id}`);
 
@@ -361,14 +353,14 @@ app.get("/api/entities/:id/adapters", (async (req, res) => {
     const { id } = req.params;
     const accessKey = req.headers["x-access-key"];
 
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-
-    if (!fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (!exists) {
       return res.status(404).json({ error: "Entity not found" });
     }
 
     // Read entity file to verify access key
-    const entityData = JSON.parse(fs.readFileSync(entityPath, "utf8"));
+    const entityData = JSON.parse((await redis.get(entityKey)) || "{}");
 
     if (entityData.access_key !== accessKey) {
       return res
@@ -377,7 +369,7 @@ app.get("/api/entities/:id/adapters", (async (req, res) => {
     }
 
     // Load the entity
-    const entity = Entity.importFromFile(entityPath);
+    const entity = await Entity.importFromRedis(id);
 
     res.json({
       adapters:
@@ -402,14 +394,14 @@ app.delete("/api/entities/:id/adapters/:adapter", (async (req, res) => {
     const { id, adapter } = req.params;
     const accessKey = req.headers["x-access-key"];
 
-    const entityPath = path.join(entitiesDir, `${id}.json`);
-
-    if (!fs.existsSync(entityPath)) {
+    const entityKey = getEntityKey(id);
+    const exists = await redis.exists(entityKey);
+    if (!exists) {
       return res.status(404).json({ error: "Entity not found" });
     }
 
     // Read entity file to verify access key
-    const entityData = JSON.parse(fs.readFileSync(entityPath, "utf8"));
+    const entityData = JSON.parse((await redis.get(entityKey)) || "{}");
 
     if (entityData.access_key !== accessKey) {
       return res
@@ -418,7 +410,7 @@ app.delete("/api/entities/:id/adapters/:adapter", (async (req, res) => {
     }
 
     // Load the entity
-    const entity = Entity.importFromFile(entityPath);
+    const entity = await Entity.importFromRedis(id);
 
     // Check if adapter exists in entity
     const adapterIndex = entity.options.adapters?.findIndex(
@@ -435,7 +427,7 @@ app.delete("/api/entities/:id/adapters/:adapter", (async (req, res) => {
     entity.options.adapters?.splice(adapterIndex, 1);
 
     // Save entity
-    entity.exportToFile(entityPath);
+    await entity.exportToRedis();
 
     logger.info(`Removed adapter '${adapter}' from entity ${id}`);
 

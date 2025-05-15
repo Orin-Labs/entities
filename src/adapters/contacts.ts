@@ -29,7 +29,8 @@ class ContactsListTool extends Tool {
 
 class ContactsCreateTool extends Tool {
   name = "contacts_create";
-  description = "Create a new contact for the entity";
+  description =
+    "Create a new contact for the entity. Make sure you're not duplicating existing contacts.";
   parameters = {
     name: {
       type: "string",

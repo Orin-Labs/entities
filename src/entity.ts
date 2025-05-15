@@ -7,6 +7,11 @@ import path from 'path';
 import { Adapter } from './adapters';
 import { ADAPTERS } from './adapters/list';
 import { Memory } from './memory';
+import {
+  getEntitiesListKey,
+  getEntityKey,
+  redis,
+} from './redis/config';
 import { TOOLS } from './tools';
 import { logger } from './utils';
 
@@ -65,6 +70,96 @@ export class Entity {
 
   getCurrentTime() {
     return new Date(Date.now() + (this.options.timeOffset || 0) * 60 * 1000);
+  }
+
+  static async importFromRedis(id: string) {
+    try {
+      const entityKey = getEntityKey(id);
+      const content = await redis.get(entityKey);
+
+      if (!content) {
+        throw new Error(`Entity ${id} not found in Redis`);
+      }
+
+      const options = JSON.parse(content);
+      if (!options.adapters) {
+        options.adapters = [];
+      } else {
+        options.adapters = options.adapters
+          .map((adapter: string) => ADAPTERS.find((a) => a.name === adapter))
+          .filter((a: Adapter | undefined) => a !== undefined);
+      }
+
+      logger.info(
+        `Imported entity with a time offset of ${
+          options.timeOffset || 0
+        } minutes, ${options.adapters.length} adapters and ${
+          options.adapters.flatMap((a: Adapter) => a.tools).length +
+          TOOLS.length
+        } tools: ${options.adapters.map((a: Adapter) => a.name).join(", ")}`
+      );
+
+      return new Entity({
+        id: options.id,
+        stm: new Memory<ChatCompletionMessageParam>(
+          options.stm,
+          options.model,
+          options.timeOffset
+        ),
+        ltm: new Memory<string>(options.ltm, options.model, options.timeOffset),
+        model: options.model,
+        adapters: options.adapters,
+        timeOffset: options.timeOffset,
+        sleepUntil: options.sleepUntil ? new Date(options.sleepUntil) : null,
+        maxMessages: options.maxMessages,
+        access_key: options.access_key,
+      });
+    } catch (error) {
+      const model = "gpt-4.1-mini";
+      const entity = new Entity({
+        id: "new-entity",
+        stm: new Memory<ChatCompletionMessageParam>({}, model),
+        ltm: new Memory<string>({}, model),
+        model: model,
+        adapters: [],
+        timeOffset: 0,
+        sleepUntil: null,
+        access_key: undefined,
+      });
+      await entity.exportToRedis();
+      return entity;
+    }
+  }
+
+  async exportToRedis() {
+    const entityKey = getEntityKey(this.options.id);
+    const entitiesListKey = getEntitiesListKey();
+
+    const entityData = {
+      ...this.options,
+      maxMessages: this.options.maxMessages,
+      adapters: this.options.adapters?.map((a) => a.name),
+      stm: this.options.stm.messages,
+      ltm: this.options.ltm.messages,
+      timeOffset: this.options.timeOffset,
+      sleepUntil: this.options.sleepUntil
+        ? this.options.sleepUntil.getTime()
+        : null,
+      access_key: this.options.access_key,
+    };
+
+    try {
+      // Store the entity data
+      await redis.set(entityKey, JSON.stringify(entityData));
+
+      // Add to the list of entities
+      await redis.sadd(entitiesListKey, this.options.id);
+
+      logger.info(`Entity ${this.options.id} exported to Redis successfully`);
+    } catch (error) {
+      logger.error(`Error exporting entity to Redis: ${error}`);
+      throw error;
+    }
   }
 
   static importFromFile(path: string) {
