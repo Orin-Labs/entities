@@ -51,11 +51,6 @@ class ContactsCreateTool extends Tool {
   ): Promise<ToolResponse> {
     const { name, phone_number, email } = parameters;
 
-    if (!name || !phone_number || !email) {
-      logger.error("Missing required parameters");
-      return "Please provide all required parameters: name, phone_number, and email";
-    }
-
     const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
     const contactRequest = {
