@@ -13,6 +13,7 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+const runningEntityIds: Set<string> = new Set();
 
 // Use JSON middleware
 app.use(bodyParser.json());
@@ -34,6 +35,61 @@ const entitiesDir = path.join(process.cwd(), "entities");
 if (!fs.existsSync(entitiesDir)) {
   fs.mkdirSync(entitiesDir, { recursive: true });
 }
+
+// Function to check which entities should wake up
+const checkEntitiesForWakeup = async () => {
+  try {
+    logger.info("Checking for entities that need to wake up");
+
+    // Read all entity files in the entities directory
+    const entityFiles = fs
+      .readdirSync(entitiesDir)
+      .filter((file) => file.endsWith(".json"));
+
+    // Check each entity if it's time to wake up
+    for (const file of entityFiles) {
+      const id = path.basename(file, ".json");
+
+      // Skip if this entity is already running
+      if (runningEntityIds.has(id)) {
+        logger.info(
+          `Skipping wakeup check for entity ${id} as it's already running`
+        );
+        continue;
+      }
+
+      const entityPath = path.join(entitiesDir, file);
+      const entity = Entity.importFromFile(entityPath);
+
+      // If it's time to wake up, mark as running before starting
+      if (
+        entity.options.sleepUntil === null ||
+        (entity.options.sleepUntil &&
+          entity.getCurrentTime() >= entity.options.sleepUntil)
+      ) {
+        runningEntityIds.add(id);
+
+        entity
+          .run()
+          .catch((error) => {
+            logger.error(`Error running entity ${id}: ${error}`);
+          })
+          .finally(() => {
+            runningEntityIds.delete(id);
+          });
+      } else {
+        const sleepUntilTime = entity.options.sleepUntil
+          ? entity.options.sleepUntil.toISOString()
+          : "unknown time";
+        logger.info(
+          `Entity ${id} not ready to wake up yet, sleeping until ${sleepUntilTime}`
+        );
+      }
+    }
+  } catch (error) {
+    logger.error(`Error checking entities for wakeup: ${error}`);
+  }
+};
 
 // Register a new entity
 app.post("/api/entities", validateAccessKey, (async (req, res) => {
@@ -157,7 +213,7 @@ app.delete("/api/entities/:id", (async (req, res) => {
 app.post("/api/entities/:id/wake", validateAccessKey, (async (req, res) => {
   try {
     const { id } = req.params;
-    const { entity_access_key } = req.body;
+    const { entity_access_key, delay } = req.body;
 
     if (!entity_access_key) {
       return res
@@ -189,16 +245,37 @@ app.post("/api/entities/:id/wake", validateAccessKey, (async (req, res) => {
     // Save entity
     entity.exportToFile(entityPath);
 
-    // Start the entity's run process in the background
-    entity.run().catch((error) => {
-      logger.error(`Error running entity ${id}: ${error}`);
-    });
+    // Start the entity's run process in the background with optional delay
+    const runEntity = async () => {
+      if (runningEntityIds.has(id)) {
+        logger.error(`Entity with ID: ${id} is already running`);
+        return;
+      }
 
-    logger.info(`Woke entity with ID: ${id}`);
+      runningEntityIds.add(id);
+
+      await entity
+        .run()
+        .catch((error) => {
+          logger.error(`Error running entity ${id}: ${error}`);
+        })
+        .finally(() => {
+          runningEntityIds.delete(id);
+        });
+    };
+
+    if (delay && typeof delay === "number") {
+      setTimeout(runEntity, delay * 1000);
+      logger.info(`Entity with ID: ${id} will wake up in ${delay} seconds`);
+    } else {
+      runEntity();
+      logger.info(`Woke entity with ID: ${id}`);
+    }
 
     res.status(200).json({
       id: entity.options.id,
       message: "Entity awakened successfully",
+      delay: delay ? `Will start in ${delay} seconds` : undefined,
     });
   } catch (error) {
     logger.error(`Error waking entity: ${error}`);
@@ -372,6 +449,12 @@ app.delete("/api/entities/:id/adapters/:adapter", (async (req, res) => {
 // Start the server
 app.listen(port, () => {
   logger.info(`Entity server running on port ${port}`);
+
+  // Start the interval to check for entities that need to wake up every minute
+  setInterval(checkEntitiesForWakeup, 60000);
+
+  // Also run once on startup
+  checkEntitiesForWakeup();
 });
 
 export default app;

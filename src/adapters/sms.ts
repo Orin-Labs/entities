@@ -31,43 +31,24 @@ class SMSReadTool extends Tool {
       return "Please provide a phone number to read messages from";
     }
 
-    try {
-      const parsedPhoneNumber = parsePhoneNumber(phoneNumber, "US");
-      if (!parsedPhoneNumber.isValid()) {
-        logger.error("Invalid phone number format", phoneNumber);
-        return "Invalid phone number format. Please use the format +1XXXXXXXXXX";
-      }
-
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
-
-      // Get messages using the API endpoint
-      const messages = await client.getEntityMessages();
-
-      // Filter messages for the specific phone number if needed
-      // This depends on how the API actually returns the messages
-
-      if (!messages || (Array.isArray(messages) && !messages.length)) {
-        logger.error("No messages found for this number");
-        return "No messages found for this number";
-      }
-
-      logger.info(`Retrieved messages for ${phoneNumber}`);
-      return JSON.stringify(messages);
-    } catch (error) {
-      logger.error("Error reading SMS:", error);
-      return "Failed to read messages";
+    const parsedPhoneNumber = parsePhoneNumber(phoneNumber, "US");
+    if (!parsedPhoneNumber.isValid()) {
+      logger.error("Invalid phone number format", phoneNumber);
+      return "Invalid phone number format. Please use the format +1XXXXXXXXXX";
     }
+
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
+
+    logger.info(`Getting messages for phone number: ${phoneNumber}`);
+    const response = await client.getEntityMessages();
+    return JSON.stringify(response);
   }
 }
 
 class SMSSendTool extends Tool {
   name = "sms_send";
-  description =
-    "Send a message via SMS. Always read your messages before deciding what to do. Never text twice in a row. Keep texts short and concise.";
+  description = `Send a message via SMS. Always read your messages before deciding what to do.
+  Never text twice in a row. Keep texts short and concise, match the tone of the person you're texting.`;
   parameters = {
     message: { type: "string", description: "The message to send" },
     phoneNumber: {
@@ -87,28 +68,22 @@ class SMSSendTool extends Tool {
       return "Please provide both a message and a phone number";
     }
 
-    try {
-      const parsedPhoneNumber = parsePhoneNumber(phoneNumber, "US");
-      if (!parsedPhoneNumber.isValid()) {
-        logger.error("Invalid phone number format", phoneNumber);
-        return "Invalid phone number format. Please use the format +1XXXXXXXXXX";
-      }
-
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
-
-      // Send message using the API endpoint
-      await client.sendEntityMessage(phoneNumber, message);
-
-      logger.info("SMS sent successfully");
-      return "SMS sent successfully";
-    } catch (error: any) {
-      logger.error("Error sending SMS to " + phoneNumber + ":", error.response);
-      return "Failed to send SMS to " + phoneNumber + ". " + error.response;
+    const parsedPhoneNumber = parsePhoneNumber(phoneNumber, "US");
+    if (!parsedPhoneNumber.isValid()) {
+      logger.error("Invalid phone number format", phoneNumber);
+      return "Invalid phone number format. Please use the format +1XXXXXXXXXX";
     }
+
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
+
+    const messageData = {
+      to: phoneNumber,
+      body: message,
+    };
+
+    logger.info(`Sending message with data: ${JSON.stringify(messageData)}`);
+    const response = await client.sendEntityMessage(messageData);
+    return JSON.stringify(response);
   }
 }
 

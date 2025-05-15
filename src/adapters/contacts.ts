@@ -19,21 +19,11 @@ class ContactsListTool extends Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const contacts = await client.listContacts();
-
-      logger.info(`Retrieved ${contacts.length} contacts`);
-      return JSON.stringify(contacts);
-    } catch (error) {
-      logger.error("Error listing contacts:", error);
-      return "Failed to list contacts";
-    }
+    logger.info("Listing contacts");
+    const response = await client.listContacts();
+    return JSON.stringify(response);
   }
 }
 
@@ -66,27 +56,19 @@ class ContactsCreateTool extends Tool {
       return "Please provide all required parameters: name, phone_number, and email";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const contactRequest = {
-        name,
-        phone_number,
-        email,
-      };
+    const contactRequest = {
+      name,
+      phone_number,
+      email,
+    };
 
-      const contact = await client.createContact(contactRequest);
-
-      logger.info(`Created contact: ${name}`);
-      return JSON.stringify(contact);
-    } catch (error) {
-      logger.error("Error creating contact:", error);
-      return "Failed to create contact";
-    }
+    logger.info(
+      `Creating contact with data: ${JSON.stringify(contactRequest)}`
+    );
+    const response = await client.createContact(contactRequest);
+    return JSON.stringify(response);
   }
 }
 
@@ -111,21 +93,11 @@ class ContactsRetrieveTool extends Tool {
       return "Please provide a contact ID";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const contact = await client.getContact(id);
-
-      logger.info(`Retrieved contact: ${contact.name}`);
-      return JSON.stringify(contact);
-    } catch (error) {
-      logger.error("Error retrieving contact:", error);
-      return "Failed to retrieve contact";
-    }
+    logger.info(`Retrieving contact with ID: ${id}`);
+    const response = await client.getContact(id);
+    return JSON.stringify(response);
   }
 }
 
@@ -162,27 +134,17 @@ class ContactsUpdateTool extends Tool {
       return "Please provide all required parameters: id, name, phone_number, and email";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const contactRequest = {
-        name,
-        phone_number,
-        email,
-      };
+    const contactRequest = {
+      name,
+      phone_number,
+      email,
+    };
 
-      const contact = await client.updateContact(id, contactRequest);
-
-      logger.info(`Updated contact: ${name}`);
-      return JSON.stringify(contact);
-    } catch (error) {
-      logger.error("Error updating contact:", error);
-      return "Failed to update contact";
-    }
+    logger.info(`Updating contact with ID: ${id}`);
+    const response = await client.updateContact(id, contactRequest);
+    return JSON.stringify(response);
   }
 }
 
@@ -207,27 +169,20 @@ class ContactsDeleteTool extends Tool {
       return "Please provide a contact ID";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      await client.deleteContact(id);
-
-      logger.info(`Deleted contact with ID: ${id}`);
-      return "Contact deleted successfully";
-    } catch (error) {
-      logger.error("Error deleting contact:", error);
-      return "Failed to delete contact";
-    }
+    logger.info(`Deleting contact with ID: ${id}`);
+    const response = await client.deleteContact(id);
+    return JSON.stringify(response);
   }
 }
 
 export class ContactsAdapter extends Adapter {
   name = "contacts";
-  description = "Allows the entity to manage contacts";
+  description = `Allows the entity to manage contacts. To receive emails, SMS, or calls from a
+    person they must be in your contact book. So whenever you learn of someone you might want to
+    communicate with, you should immediately add them to your contact book so that you can read
+    any messages they might've sent you.`;
   tools: Tool[] = [
     new ContactsListTool(),
     new ContactsCreateTool(),

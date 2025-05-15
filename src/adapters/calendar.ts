@@ -8,9 +8,6 @@ import {
 import { logger } from '../utils';
 import { Adapter } from './index';
 
-// Initialize a base API client
-const apiClient = new ApiClient(API_CONFIG.baseURL);
-
 class CalendarReadTool extends Tool {
   name = "calendar_read";
   description =
@@ -30,27 +27,11 @@ class CalendarReadTool extends Tool {
     entity: Entity,
     parameters: Record<string, any>
   ): Promise<ToolResponse> {
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      // Get all events from the new endpoint
-      const events = await client.listEvents();
-
-      if (!events || !events.length) {
-        logger.info("No events found");
-        return "No events found";
-      }
-
-      logger.info(`Found ${events.length} events`);
-      return JSON.stringify(events);
-    } catch (error) {
-      logger.error("Error reading calendar events:", error);
-      return "Failed to read calendar events";
-    }
+    logger.info("Listing events");
+    const response = await client.listEvents();
+    return JSON.stringify(response);
   }
 }
 
@@ -75,21 +56,11 @@ class CalendarGetEventTool extends Tool {
       return "Please provide an event ID to get details";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const event = await client.getEvent(eventId);
-
-      logger.info(`Retrieved event details for ${eventId}`);
-      return JSON.stringify(event);
-    } catch (error) {
-      logger.error("Error getting event details:", error);
-      return "Failed to get event details";
-    }
+    logger.info(`Getting event ${eventId}`);
+    const response = await client.getEvent(eventId);
+    return JSON.stringify(response);
   }
 }
 
@@ -130,30 +101,20 @@ class CalendarCreateTool extends Tool {
       return "Please provide all required parameters: title, startTime, and endTime";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const eventRequest = {
-        calendar: 1, // Since we don't specify a calendar ID anymore, default to primary (ID 1)
-        title,
-        description,
-        start_time: startTime,
-        end_time: endTime,
-        all_day: allDay || false,
-      };
+    const eventRequest = {
+      calendar: 1, // Since we don't specify a calendar ID anymore, default to primary (ID 1)
+      title,
+      description,
+      start_time: startTime,
+      end_time: endTime,
+      all_day: allDay || false,
+    };
 
-      const response = await client.createEvent(eventRequest);
-
-      logger.info(`Created event: ${title}`);
-      return JSON.stringify(response);
-    } catch (error) {
-      logger.error("Error creating calendar event:", error);
-      return "Failed to create calendar event";
-    }
+    logger.info(`Creating event with data: ${JSON.stringify(eventRequest)}`);
+    const response = await client.createEvent(eventRequest);
+    return JSON.stringify(response);
   }
 }
 
@@ -202,31 +163,23 @@ class CalendarUpdateTool extends Tool {
       return "Please provide an event ID and at least one field to update";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      const updateData: any = {
-        calendar: 1, // Since we don't specify a calendar ID anymore, default to primary (ID 1)
-      };
+    const updateData: any = {
+      calendar: 1, // Since we don't specify a calendar ID anymore, default to primary (ID 1)
+    };
 
-      if (title !== undefined) updateData.title = title;
-      if (description !== undefined) updateData.description = description;
-      if (startTime !== undefined) updateData.start_time = startTime;
-      if (endTime !== undefined) updateData.end_time = endTime;
-      if (allDay !== undefined) updateData.all_day = allDay;
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (startTime !== undefined) updateData.start_time = startTime;
+    if (endTime !== undefined) updateData.end_time = endTime;
+    if (allDay !== undefined) updateData.all_day = allDay;
 
-      const response = await client.patchEvent(eventId, updateData);
-
-      logger.info(`Updated event ${eventId}`);
-      return JSON.stringify(response);
-    } catch (error) {
-      logger.error("Error updating calendar event:", error);
-      return "Failed to update calendar event";
-    }
+    logger.info(
+      `Updating event ${eventId} with data: ${JSON.stringify(updateData)}`
+    );
+    const response = await client.patchEvent(eventId, updateData);
+    return JSON.stringify(response);
   }
 }
 
@@ -251,21 +204,11 @@ class CalendarDeleteTool extends Tool {
       return "Please provide an event ID";
     }
 
-    try {
-      // Create a client with the entity's access key
-      const client = new ApiClient(
-        API_CONFIG.baseURL,
-        entity.options.access_key
-      );
+    logger.info(`Deleting event ${eventId}`);
+    const client = new ApiClient(API_CONFIG.baseURL, entity.options.access_key);
 
-      await client.deleteEvent(eventId);
-
-      logger.info(`Deleted event ${eventId}`);
-      return "Event deleted successfully";
-    } catch (error) {
-      logger.error("Error deleting calendar event:", error);
-      return "Failed to delete calendar event";
-    }
+    const response = await client.deleteEvent(eventId);
+    return JSON.stringify(response);
   }
 }
 

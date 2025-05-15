@@ -1,6 +1,7 @@
 import axios, {
   AxiosInstance,
   AxiosRequestConfig,
+  AxiosResponse,
 } from 'axios';
 
 import { API_CONFIG } from './config';
@@ -63,6 +64,15 @@ export interface ContactRequest {
   email: string;
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    message: string;
+    details?: any;
+  };
+}
+
 export class ApiClient {
   private client: AxiosInstance;
 
@@ -72,6 +82,7 @@ export class ApiClient {
       headers: {
         "Content-Type": "application/json",
       },
+      validateStatus: () => true, // Don't throw on any status code
     };
 
     if (entityAccessKey) {
@@ -84,145 +95,185 @@ export class ApiClient {
     this.client = axios.create(config);
   }
 
+  // Helper method to process responses
+  private async processResponse<T>(
+    promise: Promise<AxiosResponse>
+  ): Promise<ApiResponse<T>> {
+    try {
+      const response = await promise;
+
+      if (response.status >= 200 && response.status < 300) {
+        return {
+          success: true,
+          data: response.data,
+        };
+      } else {
+        return {
+          success: false,
+          error: {
+            message:
+              response.data?.error ||
+              `Request failed with status ${response.status}`,
+            details: response.data,
+          },
+        };
+      }
+    } catch (err) {
+      const error = err as Error;
+      return {
+        success: false,
+        error: {
+          message: error.message || "Unknown error occurred",
+          details: error,
+        },
+      };
+    }
+  }
+
   // Calendar endpoints
-  async listCalendars(): Promise<Calendar[]> {
-    const response = await this.client.get("/api/calendars/calendars/");
-    return response.data;
-  }
-
-  async createCalendar(calendar: CalendarRequest): Promise<Calendar> {
-    const response = await this.client.post(
-      "/api/calendars/calendars/",
-      calendar
+  async listCalendars(): Promise<ApiResponse<Calendar[]>> {
+    return this.processResponse<Calendar[]>(
+      this.client.get("/api/calendars/calendars/")
     );
-    return response.data;
   }
 
-  async getCalendar(id: string): Promise<Calendar> {
-    const response = await this.client.get(`/api/calendars/calendars/${id}/`);
-    return response.data;
+  async createCalendar(
+    calendar: CalendarRequest
+  ): Promise<ApiResponse<Calendar>> {
+    return this.processResponse<Calendar>(
+      this.client.post("/api/calendars/calendars/", calendar)
+    );
+  }
+
+  async getCalendar(id: string): Promise<ApiResponse<Calendar>> {
+    return this.processResponse<Calendar>(
+      this.client.get(`/api/calendars/calendars/${id}/`)
+    );
   }
 
   async updateCalendar(
     id: string,
     calendar: CalendarRequest
-  ): Promise<Calendar> {
-    const response = await this.client.put(
-      `/api/calendars/calendars/${id}/`,
-      calendar
+  ): Promise<ApiResponse<Calendar>> {
+    return this.processResponse<Calendar>(
+      this.client.put(`/api/calendars/calendars/${id}/`, calendar)
     );
-    return response.data;
   }
 
   async patchCalendar(
     id: string,
     calendar: Partial<CalendarRequest>
-  ): Promise<Calendar> {
-    const response = await this.client.patch(
-      `/api/calendars/calendars/${id}/`,
-      calendar
+  ): Promise<ApiResponse<Calendar>> {
+    return this.processResponse<Calendar>(
+      this.client.patch(`/api/calendars/calendars/${id}/`, calendar)
     );
-    return response.data;
   }
 
-  async deleteCalendar(id: string): Promise<void> {
-    await this.client.delete(`/api/calendars/calendars/${id}/`);
+  async deleteCalendar(id: string): Promise<ApiResponse<void>> {
+    return this.processResponse<void>(
+      this.client.delete(`/api/calendars/calendars/${id}/`)
+    );
   }
 
   // Calendar events endpoints
-  async listEvents(): Promise<CalendarEvent[]> {
-    const response = await this.client.get("/api/calendars/events/");
-    return response.data;
+  async listEvents(): Promise<ApiResponse<CalendarEvent[]>> {
+    return this.processResponse<CalendarEvent[]>(
+      this.client.get("/api/calendars/events/")
+    );
   }
 
-  async createEvent(event: CalendarEventRequest): Promise<CalendarEvent> {
-    const response = await this.client.post("/api/calendars/events/", event);
-    return response.data;
+  async createEvent(
+    event: CalendarEventRequest
+  ): Promise<ApiResponse<CalendarEvent>> {
+    return this.processResponse<CalendarEvent>(
+      this.client.post("/api/calendars/events/", event)
+    );
   }
 
-  async getEvent(id: string): Promise<CalendarEvent> {
-    const response = await this.client.get(`/api/calendars/events/${id}/`);
-    return response.data;
+  async getEvent(id: string): Promise<ApiResponse<CalendarEvent>> {
+    return this.processResponse<CalendarEvent>(
+      this.client.get(`/api/calendars/events/${id}/`)
+    );
   }
 
   async updateEvent(
     id: string,
     event: CalendarEventRequest
-  ): Promise<CalendarEvent> {
-    const response = await this.client.put(
-      `/api/calendars/events/${id}/`,
-      event
+  ): Promise<ApiResponse<CalendarEvent>> {
+    return this.processResponse<CalendarEvent>(
+      this.client.put(`/api/calendars/events/${id}/`, event)
     );
-    return response.data;
   }
 
   async patchEvent(
     id: string,
     event: Partial<CalendarEventRequest>
-  ): Promise<CalendarEvent> {
-    const response = await this.client.patch(
-      `/api/calendars/events/${id}/`,
-      event
+  ): Promise<ApiResponse<CalendarEvent>> {
+    return this.processResponse<CalendarEvent>(
+      this.client.patch(`/api/calendars/events/${id}/`, event)
     );
-    return response.data;
   }
 
-  async deleteEvent(id: string): Promise<void> {
-    await this.client.delete(`/api/calendars/events/${id}/`);
+  async deleteEvent(id: string): Promise<ApiResponse<void>> {
+    return this.processResponse<void>(
+      this.client.delete(`/api/calendars/events/${id}/`)
+    );
   }
 
   // Contacts endpoints
-  async listContacts(): Promise<Contact[]> {
-    const response = await this.client.get("/api/entities/contacts/");
-    return response.data;
-  }
-
-  async createContact(contact: ContactRequest): Promise<Contact> {
-    const response = await this.client.post("/api/entities/contacts/", contact);
-    return response.data;
-  }
-
-  async getContact(id: string): Promise<Contact> {
-    const response = await this.client.get(`/api/entities/contacts/${id}/`);
-    return response.data;
-  }
-
-  async updateContact(id: string, contact: ContactRequest): Promise<Contact> {
-    const response = await this.client.put(
-      `/api/entities/contacts/${id}/`,
-      contact
+  async listContacts(): Promise<ApiResponse<Contact[]>> {
+    return this.processResponse<Contact[]>(
+      this.client.get("/api/entities/contacts/")
     );
-    return response.data;
+  }
+
+  async createContact(contact: ContactRequest): Promise<ApiResponse<Contact>> {
+    return this.processResponse<Contact>(
+      this.client.post("/api/entities/contacts/", contact)
+    );
+  }
+
+  async getContact(id: string): Promise<ApiResponse<Contact>> {
+    return this.processResponse<Contact>(
+      this.client.get(`/api/entities/contacts/${id}/`)
+    );
+  }
+
+  async updateContact(
+    id: string,
+    contact: ContactRequest
+  ): Promise<ApiResponse<Contact>> {
+    return this.processResponse<Contact>(
+      this.client.put(`/api/entities/contacts/${id}/`, contact)
+    );
   }
 
   async patchContact(
     id: string,
     contact: Partial<ContactRequest>
-  ): Promise<Contact> {
-    const response = await this.client.patch(
-      `/api/entities/contacts/${id}/`,
-      contact
+  ): Promise<ApiResponse<Contact>> {
+    return this.processResponse<Contact>(
+      this.client.patch(`/api/entities/contacts/${id}/`, contact)
     );
-    return response.data;
   }
 
-  async deleteContact(id: string): Promise<void> {
-    await this.client.delete(`/api/entities/contacts/${id}/`);
+  async deleteContact(id: string): Promise<ApiResponse<void>> {
+    return this.processResponse<void>(
+      this.client.delete(`/api/entities/contacts/${id}/`)
+    );
   }
 
   // SMS endpoints
-  async getEntityMessages(): Promise<any> {
-    const response = await this.client.get("/api/sms/entity-messages/");
-    return response.data;
+  async getEntityMessages(): Promise<ApiResponse<any>> {
+    return this.processResponse<any>(
+      this.client.get("/api/sms/entity-messages/")
+    );
   }
 
-  async sendEntityMessage(to: string, body: string): Promise<any> {
-    console.log("Sending entity message to", to, body);
-    const response = await this.client.post("/api/sms/entity-messages/", {
-      to,
-      body,
-    });
-    return response.data;
+  async sendEntityMessage(data: any): Promise<ApiResponse<any>> {
+    return this.processResponse<any>(
+      this.client.post("/api/sms/entity-messages/", data)
+    );
   }
 }
 

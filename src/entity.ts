@@ -167,6 +167,21 @@ export class Entity {
       },
       {
         role: "system",
+        content: dedent`
+          You have access to the following adapters:
+          ${this.options.adapters
+            ?.map((adapter) => {
+              return `- ${adapter.name}: ${adapter.description}
+              Tools:
+              ${adapter.tools
+                .map((tool) => `  - ${tool.name}: ${tool.description}`)
+                .join("\n")}`;
+            })
+            .join("\n\n")}
+        `,
+      },
+      {
+        role: "system",
         content: this.systemPrompt,
       },
       ...messages,
@@ -181,6 +196,17 @@ export class Entity {
       ...(this.options.adapters?.flatMap((a) => a.tools) || []),
       ...TOOLS,
     ];
+    const wakeUpMessage: ChatCompletionMessageParam = {
+      role: "system",
+      content: dedent`
+        You are being woken up from sleep. Check on things and continue towards your goals. If nothing
+        needs to be done, go back to sleep. You must check everything before sleeping again.
+
+        When communicating with others, think deeply about how your interactions might be perceived. You
+        want to come off a attentive and controlled, but not overbearing or annoying.
+      `,
+    };
+    await this.options.stm.add(wakeUpMessage);
 
     // Run until entity goes to sleep
     let i = 0;

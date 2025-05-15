@@ -48,8 +48,8 @@ export abstract class Tool {
 
 class SleepTool extends Tool {
   name = "sleep";
-  description =
-    "Sleep until a given time. Only use one of these at a time, and only when you have nothing else to do. You cannot call this tool with any others.";
+  description = `Sleep until a given time. Only use one of these at a time, and only when you have nothing else to do.
+    You cannot call this tool with any others.`;
   parameters = {
     until: { type: "string", description: "The time to sleep until" },
   };
@@ -150,4 +150,5 @@ export const TOOLS = [
   new SleepTool(),
   new RequestNewToolTool(),
   new PlanTool(),
+  new ReportIssueTool(),
 ];
