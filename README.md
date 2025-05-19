@@ -1,4 +1,6 @@
-Here, I introduce the concept of an AI entity. An entity is essentially a much more complex AI agent, but with a few key criteria:
+[THIS REPO HAS SINCE BEEN BROUGHT INTERNAL, SO WILL NOT BE MAINTAINED]
+
+Here, I introduce the concept of an AI entity. An entity is an agent that not just manages it's own workflow, but also it's run-schedule.
 
 ## API Configuration
 
